@@ -1,0 +1,75 @@
+# pyproject.toml
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "attn_gym"
+version = "0.0.1"
+authors = [{ name = "Driss Guessous", email = "drisspguessous@gmail.com" }]
+description = "Helpful tools and examples for working with flex-attention"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+]
+
+dependencies = [
+    "torch",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit==3.6.0",
+    "bumpver",
+    "pip-tools",
+    "pytest",
+    "ruff",
+    "jsonargparse",
+    "docstring-parser"
+]
+
+# ---------- TOOL CONFIGURATIONS ------------
+
+# ---------- RUFF ------------
+[tool.ruff]
+target-version = "py38"
+line-length = 99
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+]
+
+[tool.ruff.lint]
+ignore = ['E231', 'E731']
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]

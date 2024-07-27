@@ -25,18 +25,13 @@ cd attention-gym
 pip install .
 ```
 
-#### Dev Tool Chain
-```Bash
-pip install -e ".[dev]"
-```
-
 ## Usage
 
 Here's a quick example of how to use the FlexAttention API with a custom attention mechanism:
 
 ```python
 from torch.nn.attention.flex_attention import flex_attention, create_block_mask
-from attention_gym.masks import causal_mask
+from attn_gym.masks import causal_mask
 
 # Create a causal mask
 block_mask: BlockMask = create_block_mask(causal_mask)
@@ -49,3 +44,15 @@ output = flex_attention(query, key, value, block_mask=causal_mask)
 
 Check out the `examples/` directory for more detailed examples of different attention mechanisms and how to implement them using FlexAttention.
 
+
+## Dev
+
+Install dev requirements
+```Bash
+pip install -e ".[dev]"
+```
+
+Install pre-commit hooks
+```Bash
+pre-commit install
+```

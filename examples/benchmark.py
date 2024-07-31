@@ -16,7 +16,7 @@ from torch.nn.attention.flex_attention import (
 
 from triton.testing import do_bench
 
-from attn_gym.masks import causal_mask, generate_sliding_window
+from attn_gym.masks import causal_mask, generate_sliding_window, generate_prefix_lm_mask
 from attn_gym.mods import generate_alibi_bias
 
 
@@ -176,13 +176,15 @@ def test_mask(
 
 
 def main():
-    # Test with a causal mask
     test_mask(mask_mod=causal_mask)
     # Correctness check here is simple and only works with mask_fns and not actual score_mods
     test_mask(score_mod=generate_alibi_bias(16), skip_correctness=True)
 
     sliding_window_mask = generate_sliding_window(window_size=1024)
     test_mask(mask_mod=sliding_window_mask)
+
+    prefix_lm_mask = generate_prefix_lm_mask(prefix_length=1024)
+    test_mask(mask_mod=prefix_lm_mask)
 
 
 if __name__ == "__main__":

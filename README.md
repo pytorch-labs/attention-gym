@@ -57,3 +57,7 @@ Install pre-commit hooks
 ```Bash
 pre-commit install
 ```
+
+
+## License
+attention-gym is released under the BSD 3-Clause License.

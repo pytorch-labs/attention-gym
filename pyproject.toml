@@ -32,6 +32,13 @@ dev = [
     "docstring-parser"
 ]
 
+viz = [
+    "matplotlib",
+    "numpy",
+    "jsonargparse",
+    "docstring-parser"
+]
+
 # ---------- TOOL CONFIGURATIONS ------------
 
 # ---------- RUFF ------------

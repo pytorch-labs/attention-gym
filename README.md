@@ -34,7 +34,8 @@ from torch.nn.attention.flex_attention import flex_attention, create_block_mask
 from attn_gym.masks import causal_mask
 
 # Create a causal mask
-block_mask: BlockMask = create_block_mask(causal_mask)
+Q_LEN, KV_LEN = query.size(-2), key.size(-2)
+block_mask: BlockMask = create_block_mask(causal_mask, 1, 1, Q_LEN, KV_LEN)
 
 # Use FlexAttention with a causal mask modification
 output = flex_attention(query, key, value, block_mask=causal_mask)

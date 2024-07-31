@@ -16,7 +16,13 @@ from torch.nn.attention.flex_attention import (
 
 from triton.testing import do_bench
 
-from attn_gym.masks import causal_mask, generate_sliding_window, generate_prefix_lm_mask
+from attn_gym.masks.document_mask import length_to_offsets
+from attn_gym.masks import (
+    causal_mask,
+    generate_sliding_window,
+    generate_prefix_lm_mask,
+    generate_doc_mask_mod,
+)
 from attn_gym.mods import generate_alibi_bias
 
 
@@ -185,6 +191,29 @@ def main():
 
     prefix_lm_mask = generate_prefix_lm_mask(prefix_length=1024)
     test_mask(mask_mod=prefix_lm_mask)
+
+    #  Document masking
+    import random
+
+    random.seed(0)
+
+    def generate_random_lengths(total_length, num_documents):
+        # Initialize all lengths to 1 to ensure each document has at least one token
+        lengths = [1] * num_documents
+        remaining_length = total_length - num_documents
+
+        # Randomly distribute the remaining length
+        for _ in range(remaining_length):
+            index = random.randint(0, num_documents - 1)
+            lengths[index] += 1
+
+        return lengths
+
+    max_seq_len, n_docs = 32768, 12
+    lengths = generate_random_lengths(max_seq_len, n_docs)
+    offsets = length_to_offsets(lengths, "cuda")
+    document_causal_mask = generate_doc_mask_mod(causal_mask, offsets)
+    test_mask(mask_mod=document_causal_mask, S=32768)
 
 
 if __name__ == "__main__":

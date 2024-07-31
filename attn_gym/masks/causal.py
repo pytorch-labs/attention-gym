@@ -6,7 +6,7 @@ def causal_mask(b, h, q_idx, kv_idx):
 
 
 def main(device: str = "cpu"):
-    """Visualize the attention scores of a causal attention mechanism.
+    """Visualize the attention scores of causal masking.
 
     Args:
         device (str): Device to use for computation. Defaults

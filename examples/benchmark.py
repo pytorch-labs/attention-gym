@@ -39,7 +39,7 @@ flex_attention = torch.compile(flex_attention, dynamic=False)
 
 data_type = torch.float16
 
-# The kernels will utilize block sparisty to increase performance
+# The kernels will utilize block sparsity to increase performance
 print(f"Using the default sparsity block size: {_DEFAULT_SPARSE_BLOCK_SIZE}")
 
 
@@ -181,18 +181,7 @@ def test_mask(
         print(f"\nBlock Mask:\n{block_mask}")
 
 
-def main():
-    test_mask(mask_mod=causal_mask)
-    # Correctness check here is simple and only works with mask_fns and not actual score_mods
-    test_mask(score_mod=generate_alibi_bias(16), skip_correctness=True)
-
-    sliding_window_mask = generate_sliding_window(window_size=1024)
-    test_mask(mask_mod=sliding_window_mask)
-
-    prefix_lm_mask = generate_prefix_lm_mask(prefix_length=1024)
-    test_mask(mask_mod=prefix_lm_mask)
-
-    #  Document masking
+def run_document_masking(max_seq_len: int, num_docs: int):
     import random
 
     random.seed(0)
@@ -209,11 +198,25 @@ def main():
 
         return lengths
 
-    max_seq_len, n_docs = 32768, 12
-    lengths = generate_random_lengths(max_seq_len, n_docs)
+    lengths = generate_random_lengths(max_seq_len, num_docs)
     offsets = length_to_offsets(lengths, "cuda")
     document_causal_mask = generate_doc_mask_mod(causal_mask, offsets)
     test_mask(mask_mod=document_causal_mask, S=32768)
+
+
+def main():
+    test_mask(mask_mod=causal_mask)
+    # Correctness check here is simple and only works with mask_fns and not actual score_mods
+    test_mask(score_mod=generate_alibi_bias(16), skip_correctness=True)
+
+    sliding_window_mask = generate_sliding_window(window_size=1024)
+    test_mask(mask_mod=sliding_window_mask)
+
+    prefix_lm_mask = generate_prefix_lm_mask(prefix_length=1024)
+    test_mask(mask_mod=prefix_lm_mask)
+
+    # Document masking
+    run_document_masking(max_seq_len=32768, num_docs=12)
 
 
 if __name__ == "__main__":

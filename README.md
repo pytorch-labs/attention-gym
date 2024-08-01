@@ -1,4 +1,4 @@
-# Attention Gym
+# Attention Gym 💪
 Attention Gym is a collection of helpful tools and examples for working with flex-attention
 
 ## Overview
@@ -11,7 +11,7 @@ This repository aims to provide a playground for experimenting with various atte
 - Utility functions for creating and combining attention masks
 - Examples of how to use FlexAttention in real-world scenarios
 
-## Getting Started
+## 🚀 Getting Started
 
 ### Prerequisites
 
@@ -41,12 +41,15 @@ block_mask: BlockMask = create_block_mask(causal_mask, 1, 1, Q_LEN, KV_LEN)
 output = flex_attention(query, key, value, block_mask=causal_mask)
 ```
 
-## Examples
+## 📚 Examples
 
 Check out the `examples/` directory for more detailed examples of different attention mechanisms and how to implement them using FlexAttention.
 
 
-## Dev
+## Note
+Attention Gym is under active development, and we do not currently offer any backward compatibility guarantees. APIs and functionalities may change between versions. We recommend pinning to a specific version in your projects and carefully reviewing changes when upgrading.
+
+## 🛠️ Dev
 
 Install dev requirements
 ```Bash

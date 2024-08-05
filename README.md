@@ -6,8 +6,7 @@ Attention Gym is a collection of helpful tools and examples for working with fle
 [**🚀 Getting Started**](#-getting-started) |
 [**💻 Usage**](#-usage) |
 [**🛠️ Dev**](#-dev) |
-[**License**](#️license)
-
+[**⚖️ License**](#️-license)
 ## 📖 Overview
 
 This repository aims to provide a playground for experimenting with various attention mechanisms using the FlexAttention API. It includes implementations of different attention variants, performance comparisons, and utility functions to help researchers and developers explore and optimize attention mechanisms in their models.
@@ -83,6 +82,6 @@ Install pre-commit hooks
 pre-commit install
 ```
 
-## License
+## ⚖️ License
 
 attention-gym is released under the BSD 3-Clause License.

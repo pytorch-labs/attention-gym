@@ -1,13 +1,20 @@
 # Attention Gym
+
 Attention Gym is a collection of helpful tools and examples for working with flex-attention
 
-![favorite](https://github.com/user-attachments/assets/3747fd24-1282-4d65-9072-882e55dad0ad)
+[**🎯 Features**](#-features) |
+[**🚀 Getting Started**](#-getting-started) |
+[**💻 Usage**](#-usage) |
+[**🛠️ Dev**](#-dev) |
+[**License**](#️license)
 
-## Overview
+## 📖 Overview
 
 This repository aims to provide a playground for experimenting with various attention mechanisms using the FlexAttention API. It includes implementations of different attention variants, performance comparisons, and utility functions to help researchers and developers explore and optimize attention mechanisms in their models.
 
-## Features
+![favorite](https://github.com/user-attachments/assets/3747fd24-1282-4d65-9072-882e55dad0ad)
+
+## 🎯 Features
 
 - Implementations of various attention mechanisms using FlexAttention
 - Utility functions for creating and combining attention masks
@@ -27,56 +34,55 @@ cd attention-gym
 pip install .
 ```
 
-## Usage
+## 💻 Usage 
 
-Here's a quick example of how to use the FlexAttention API with a causal_mask:
+There are two main ways to use Attention Gym:
 
-```python
-from torch.nn.attention.flex_attention import flex_attention, create_block_mask
-from attn_gym.masks import causal_mask
+1. **Run Example Scripts**: Many files in the project can be executed directly to demonstrate their functionality:
+   ```bash
+   python attn_gym/masks/document_mask.py
+   ```
+   These scripts often generate visualizations to help you understand the attention mechanisms.
 
-# Create a causal mask
-Q_LEN, KV_LEN = query.size(-2), key.size(-2)
-block_mask: BlockMask = create_block_mask(causal_mask, 1, 1, Q_LEN, KV_LEN)
+2. **Import in Your Projects**: You can use Attention Gym components in your own work by importing them:
+   ```python
+   from torch.nn.attention.flex_attention import flex_attention, create_block_mask
+   from attn_gym.masks import generate_sliding_window
+   
+   # Use the imported function in your code
+   sliding_window_mask = generate_sliding_window(window_size=1024)
+   block_mask = create_block_mask(mask_mod, 1, 1, S, S, device=device)
+   out = flex_attention(query, key, value, block_mask=block_mask)
+   ```
 
-# Use FlexAttention with a causal mask modification
-output = flex_attention(query, key, value, block_mask=causal_mask)
-```
+For comprehensive examples of using FlexAttention in real-world scenarios, explore the `examples/` directory. These end-to-end implementations showcase how to integrate various attention mechanisms into your models.
+
+### Note
+
+Attention Gym is under active development, and we do not currently offer any backward compatibility guarantees. APIs and functionalities may change between versions. We recommend pinning to a specific version in your projects and carefully reviewing changes when upgrading.
+
 ## 📁 Structure
 
 Attention Gym is organized for easy exploration of attention mechanisms:
 
 ### 🔍 Key Locations
+
 - `attn_gym.masks`: Examples creating `BlockMasks`
 - `attn_gym.mods`: Examples creating `score_mods`
 - `examples/`: Detailed implementations using FlexAttention
 
-### 🏃‍♂️ Running Examples
-Files are both importable and runnable. To explore:
-
-1. Run files directly:
-   ```Shell
-   python attn_gym/masks/document_mask.py
-   ```
-2. Most files generate visualizations when run.
-
-Check out the `examples` directory for end-to-end examples of using FlexAttention in real-world scenarios.
-
-## Note
-Attention Gym is under active development, and we do not currently offer any backward compatibility guarantees. APIs and functionalities may change between versions. We recommend pinning to a specific version in your projects and carefully reviewing changes when upgrading.
-
 ## 🛠️ Dev
 
 Install dev requirements
-```Bash
+```bash
 pip install -e ".[dev]"
 ```
 
 Install pre-commit hooks
-```Bash
+```bash
 pre-commit install
 ```
 
-
 ## License
+
 attention-gym is released under the BSD 3-Clause License.

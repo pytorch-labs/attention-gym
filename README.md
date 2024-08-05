@@ -1,4 +1,4 @@
-# Attention Gym 💪
+# Attention Gym
 Attention Gym is a collection of helpful tools and examples for working with flex-attention
 
 ![favorite](https://github.com/user-attachments/assets/3747fd24-1282-4d65-9072-882e55dad0ad)

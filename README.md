@@ -1,6 +1,8 @@
 # Attention Gym 💪
 Attention Gym is a collection of helpful tools and examples for working with flex-attention
 
+![favorite](https://github.com/user-attachments/assets/3747fd24-1282-4d65-9072-882e55dad0ad)
+
 ## Overview
 
 This repository aims to provide a playground for experimenting with various attention mechanisms using the FlexAttention API. It includes implementations of different attention variants, performance comparisons, and utility functions to help researchers and developers explore and optimize attention mechanisms in their models.

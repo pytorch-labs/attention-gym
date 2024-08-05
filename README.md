@@ -5,7 +5,7 @@ Attention Gym is a collection of helpful tools and examples for working with fle
 [**🎯 Features**](#-features) |
 [**🚀 Getting Started**](#-getting-started) |
 [**💻 Usage**](#-usage) |
-[**🛠️ Dev**](#-dev) |
+[**🛠️ Dev**](#️-dev) |
 [**⚖️ License**](#️-license)
 ## 📖 Overview
 

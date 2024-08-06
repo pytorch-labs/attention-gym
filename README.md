@@ -6,6 +6,7 @@ Attention Gym is a collection of helpful tools and examples for working with [fl
 [**🚀 Getting Started**](#-getting-started) |
 [**💻 Usage**](#-usage) |
 [**🛠️ Dev**](#️-dev) |
+[**🤝 Contributing**](#-contributing) |
 [**⚖️ License**](#️-license)
 ## 📖 Overview
 
@@ -81,6 +82,18 @@ Install pre-commit hooks
 ```bash
 pre-commit install
 ```
+
+## 🤝 Contributing
+We welcome contributions to Attention Gym, especially new Masks or score mods! Here's how you can contribute:
+
+### Contributing Mods
+
+1. Create a new file in the [attn_gym/masks/](attn_gym/masks) for mask_mods or [attn_gym/mods/](attn_gym/mods) for score_mods.
+2. Implement your function, and add a simple main function that showcases your new function.
+3. Update the `attn_gym/*/__init__.py` file to include your new function.
+5. [Optinally] Add an end to end example using your new func in the [examples/](examples/) directory.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for more details.
 
 ## ⚖️ License
 

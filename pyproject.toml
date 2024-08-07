@@ -29,7 +29,8 @@ dev = [
     "pytest",
     "ruff",
     "jsonargparse",
-    "docstring-parser"
+    "docstring-parser",
+    "pytest"
 ]
 
 viz = [

@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Optional
+from typing import Optional, List
 
 import torch
 import torch.nn.functional as F
@@ -23,7 +23,7 @@ from attn_gym.masks import (
     generate_prefix_lm_mask,
     generate_doc_mask_mod,
 )
-from attn_gym.mods import generate_alibi_bias
+from attn_gym.mods import generate_alibi_bias, generate_tanh_softcap
 
 
 torch.set_default_device("cuda")
@@ -204,20 +204,53 @@ def run_document_masking(max_seq_len: int, num_docs: int):
     test_mask(mask_mod=document_causal_mask, S=32768)
 
 
-def main():
-    test_mask(mask_mod=causal_mask)
-    # Correctness check here is simple and only works with mask_fns and not actual score_mods
-    test_mask(score_mod=generate_alibi_bias(16), skip_correctness=True)
+def main(examples: List[str] = ["all"]):
+    """Run the benchmark with the given examples.
 
-    sliding_window_mask = generate_sliding_window(window_size=1024)
-    test_mask(mask_mod=sliding_window_mask)
+    Args:
+        examples: List of examples to run. If "all" is specified, all examples will be run.
+    """
+    available_examples = {
+        "causal": lambda: test_mask(mask_mod=causal_mask),
+        "alibi": lambda: test_mask(score_mod=generate_alibi_bias(16), skip_correctness=True),
+        "sliding_window": lambda: test_mask(mask_mod=generate_sliding_window(window_size=1024)),
+        "prefix_lm": lambda: test_mask(mask_mod=generate_prefix_lm_mask(prefix_length=1024)),
+        "document": lambda: run_document_masking(max_seq_len=32768, num_docs=12),
+        "softcap": lambda: test_mask(
+            score_mod=generate_tanh_softcap(30, approx=False), skip_correctness=True
+        ),
+        "softcap_approx": lambda: test_mask(
+            score_mod=generate_tanh_softcap(30, approx=True), skip_correctness=True
+        ),
+    }
 
-    prefix_lm_mask = generate_prefix_lm_mask(prefix_length=1024)
-    test_mask(mask_mod=prefix_lm_mask)
+    if "all" in examples:
+        ex_to_run = list(available_examples.keys())
+    else:
+        ex_to_run = examples
 
-    # Document masking
-    run_document_masking(max_seq_len=32768, num_docs=12)
+    for ex in ex_to_run:
+        if ex in available_examples:
+            available_examples[ex]()
+        else:
+            print(f"Warning: Unknown example key '{ex}'. Skipping.")
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        from jsonargparse import ArgumentParser
+    except ImportError:
+        raise ImportError("Be sure to run: pip install -e .'[viz]'")
+    parser = ArgumentParser(description="Run specific examples or all examples.")
+    parser.add_argument(
+        "--examples",
+        type=str,
+        nargs="+",
+        default=["all"],
+        help="List of examples to run. Use space to separate multiple examples. "
+        "Available options: causal, alibi, sliding_window, prefix_lm, "
+        "document, softcap, softcap_approx, or 'all' to run all examples.",
+    )
+
+    args = parser.parse_args()
+    main(**vars(args))

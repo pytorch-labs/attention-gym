@@ -11,7 +11,7 @@ def generate_sliding_window(window_size: int) -> _mask_mod_signature:
         window_size: The size of the sliding window.
 
     Note:
-        We assume that the window size is represents the lookback size and we mask out all future tokens
+        We assume that the window size represents the lookback size and we mask out all future tokens
         similar to causal masking.
     """
 

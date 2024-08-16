@@ -65,7 +65,7 @@ def generate_tanh_softcap(soft_cap: int, approx: bool = False) -> _score_mod_sig
     tanh = _tanh_approx if approx else torch.tanh
 
     def tanh_softcap(score, b, h, q_idx, kv_idx):
-        return score * tanh(score / soft_cap)
+        return soft_cap * tanh(score / soft_cap)
 
     prefix = "tanh_softcap_approx" if approx else "tanh_softcap"
     tanh_softcap.__name__ = f"{prefix}_{soft_cap}"

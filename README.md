@@ -31,6 +31,7 @@ This repository aims to provide a playground for experimenting with various atte
 ```bash
 git clone https://github.com/pytorch-labs/attention-gym.git
 cd attention-gym
+pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/cu124
 pip install .
 ```
 

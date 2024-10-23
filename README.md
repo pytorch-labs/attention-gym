@@ -34,7 +34,7 @@ cd attention-gym
 pip install .
 ```
 
-## 💻 Usage 
+## 💻 Usage
 
 There are two main ways to use Attention Gym:
 
@@ -48,10 +48,10 @@ There are two main ways to use Attention Gym:
    ```python
    from torch.nn.attention.flex_attention import flex_attention, create_block_mask
    from attn_gym.masks import generate_sliding_window
-   
+
    # Use the imported function in your code
-   sliding_window_mask = generate_sliding_window(window_size=1024)
-   block_mask = create_block_mask(mask_mod, 1, 1, S, S, device=device)
+   sliding_window_mask_mod = generate_sliding_window(window_size=1024)
+   block_mask = create_block_mask(sliding_window_mask_mod, 1, 1, S, S, device=device)
    out = flex_attention(query, key, value, block_mask=block_mask)
    ```
 

@@ -115,11 +115,27 @@ def visualize_attention_scores(
         batch_idx=batch_idx,
         head_idx=head_idx,
     )
+    # If both score_mod and mask_mod are provided, apply both
+    if score_mod is not None and mask_mod is not None:
+        mask_viz = create_score_mod(
+            query,
+            key,
+            score_mod=None,
+            mask_mod=mask_mod,
+            scale=scale,
+            device=device,
+            batch_idx=batch_idx,
+            head_idx=head_idx,
+        )
+        # Apply mask by setting masked positions to -inf
+        scores_viz = torch.where(mask_viz == 0, float("-inf"), scores_viz)
 
     suffix_title = f"Batch {batch_idx}, Head {head_idx}" if batch_idx != 0 or head_idx != 0 else ""
 
     fig, ax = plt.subplots(figsize=(12, 10))
     color = "viridis" if score_mod is not None else "cividis"
+    if score_mod is not None and mask_mod is not None:
+        color = "plasma"
     im = ax.imshow(scores_viz.cpu().detach()[0, 0, :, :], aspect="auto", cmap=color)
     fig.colorbar(im)
 

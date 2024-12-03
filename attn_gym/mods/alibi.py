@@ -16,13 +16,13 @@ def generate_alibi_bias(H: int) -> _score_mod_signature:
 
     def alibi_mod(score, b, h, q_idx, kv_idx):
         scale = torch.exp2(-((h + 1) * 8.0 / H))
-        bias = (q_idx - kv_idx) * scale
+        bias = (kv_idx - q_idx) * scale
         return score + bias
 
     return alibi_mod
 
 
-def main(device: str = "cpu"):
+def main(device: str = "cpu", causal: bool = True):
     """Visualize the attention scores alibi bias score mod.
 
     Args:
@@ -40,8 +40,16 @@ def main(device: str = "cpu"):
 
     alibi_score_mod = generate_alibi_bias(H)
 
+    def causal_mask(b, h, q_idx, kv_idx):
+        return q_idx >= kv_idx
+
     visualize_attention_scores(
-        query, key, score_mod=alibi_score_mod, device=device, name="alibi_score_mod"
+        query,
+        key,
+        score_mod=alibi_score_mod,
+        mask_mod=causal_mask if causal else None,
+        device=device,
+        name=f"alibi_score_mod_{'causal' if causal else 'non-causal'}",
     )
 
 

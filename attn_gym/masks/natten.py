@@ -42,6 +42,7 @@ def generate_natten(
     natten_mask_mod.__name__ = f"natten_c{canvas_w}x{canvas_h}_k{kernel_w}x{kernel_h}"
     return natten_mask_mod
 
+
 def generate_tiled_natten(
     W: int,
     H: int,
@@ -68,7 +69,7 @@ def generate_tiled_natten(
         t_x, t_y = t_id // (W // T_W), t_id % (W // T_W)
         t_offset = idx % (T_H * T_W)
         i_x, i_y = t_offset // T_W, t_offset % T_W
-        return t_x*T_W + i_x, t_y*T_H + i_y
+        return t_x * T_W + i_x, t_y * T_H + i_y
 
     def tiled_natten_mask(
         b: IntTensor,
@@ -87,6 +88,7 @@ def generate_tiled_natten(
     tiled_natten_mask.__name__ = f"tiled_natten_c{W}x{H}_k{K_W}x{K_H}_t{T_W}x{T_H}"
     return tiled_natten_mask
 
+
 def interleave_bits_32(x):
     """
     Interleave the bits of a 16-bit integer x, producing a 32-bit integer
@@ -98,6 +100,7 @@ def interleave_bits_32(x):
     x = (x | (x << 2)) & 0x33333333
     x = (x | (x << 1)) & 0x55555555
     return x
+
 
 def morton_encode(x, y):
     """
@@ -112,6 +115,7 @@ def morton_encode(x, y):
     """
     return (interleave_bits_32(y) << 1) | interleave_bits_32(x)
 
+
 def deinterleave_bits_32(code):
     """
     Deinterleave bits to retrieve the original 16-bit integer.
@@ -122,6 +126,7 @@ def deinterleave_bits_32(code):
     code = (code | (code >> 4)) & 0x00FF00FF
     code = (code | (code >> 8)) & 0x0000FFFF
     return code
+
 
 def morton_decode(code):
     """
@@ -144,13 +149,14 @@ def generate_morton_natten(
     kernel_w: int,
     kernel_h: int,
 ) -> _mask_mod_signature:
-    """Generates a NATTEN attention mask with a given kernel size under morton curve layout. 
+    """Generates a NATTEN attention mask with a given kernel size under morton curve layout.
     Args:
         canvas_w: The width of the canvas.
         canvas_h: The height of the canvas.
         kernel_w: The width of the kernel.
         kernel_h: The height of the kernel.
     """
+
     def natten_mask_mod(
         b: IntTensor,
         h: IntTensor,
@@ -169,6 +175,7 @@ def generate_morton_natten(
 
     natten_mask_mod.__name__ = f"morton_natten_c{canvas_w}x{canvas_h}_k{kernel_w}x{kernel_h}"
     return natten_mask_mod
+
 
 def main(device: str = "cpu"):
     """Visualize the attention scores of NATTEN mask mod.
@@ -204,8 +211,7 @@ def main(device: str = "cpu"):
         device=device,
         name=natten_mask.__name__,
     )
-    
-    
+
     tiled_natten_mask = generate_tiled_natten(
         W=CANVAS_WIDTH,
         H=CANVAS_HEIGHT,
@@ -222,8 +228,7 @@ def main(device: str = "cpu"):
         device=device,
         name=tiled_natten_mask.__name__,
     )
-    
-    
+
     morton_natten_mask = generate_morton_natten(
         canvas_w=CANVAS_WIDTH,
         canvas_h=CANVAS_HEIGHT,

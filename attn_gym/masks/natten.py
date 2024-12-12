@@ -42,31 +42,35 @@ def generate_natten(
     natten_mask_mod.__name__ = f"natten_c{canvas_w}x{canvas_h}_k{kernel_w}x{kernel_h}"
     return natten_mask_mod
 
-
 def generate_tiled_natten(
-    canvas_w: int,
-    canvas_h: int,
-    kernel_w: int,
-    kernel_h: int,
-    tile_w: int, 
-    tile_h: int,
+    W: int,
+    H: int,
+    K_W: int,
+    K_H: int,
+    T_W: int,
+    T_H: int,
 ) -> _mask_mod_signature:
-    """Generates a NATTEN attention mask with a given kernel size under static tiled layout. 
+    """Generates a NATTEN attention mask with a given kernel size and static tiling.
     Args:
-        canvas_w: The width of the canvas.
-        canvas_h: The height of the canvas.
-        kernel_w: The width of the kernel.
-        kernel_h: The height of the kernel.
-        tile_w: The width of the static tile.
-        tile_h: The height of the static tile.
+        W: The width of the canvas.
+        H: The height of the canvas.
+        K_W: The width of the kernel.
+        K_H: The height of the kernel.
+        T_W: The width of the tile.
+        T_H: The height of the tile.
     """
-    def get_x_y_tiled(idx):
-        t_id = idx // (tile_w * tile_h)
-        t_x, t_y = t_id // (kernel_w // tile_w), t_id % (kernel_w // tile_w)
-        t_offset = idx % (tile_h * tile_w)
-        i_x, i_y = t_offset // tile_w, t_offset % tile_w
-        return t_x*tile_w + i_x, t_y*tile_h + i_y
-    def natten_mask_mod(
+
+    def get_x_y_tiled(idx: IntTensor) -> Tuple[IntTensor, IntTensor]:
+        """
+        Map 1-D index to 2-D coordinates for static tiles of T_H x T_W.
+        """
+        t_id = idx // (T_H * T_W)
+        t_x, t_y = t_id // (W // T_W), t_id % (W // T_W)
+        t_offset = idx % (T_H * T_W)
+        i_x, i_y = t_offset // T_W, t_offset % T_W
+        return t_x*T_W + i_x, t_y*T_H + i_y
+
+    def tiled_natten_mask(
         b: IntTensor,
         h: IntTensor,
         q_idx: IntTensor,
@@ -74,24 +78,21 @@ def generate_tiled_natten(
     ) -> BoolTensor:
         q_x, q_y = get_x_y_tiled(q_idx)
         kv_x, kv_y = get_x_y_tiled(kv_idx)
-        # kernel nominally attempts to center itself on the query, but kernel center
-        # is clamped to a fixed distance (kernel half-length) from the canvas edge
-        kernel_center_x = q_x.clamp(kernel_w // 2, (canvas_w - 1) - kernel_w // 2)
-        kernel_center_y = q_y.clamp(kernel_h // 2, (canvas_h - 1) - kernel_h // 2)
-        hori_mask = (kernel_center_x - kv_x).abs() <= kernel_w // 2
-        vert_mask = (kernel_center_y - kv_y).abs() <= kernel_h // 2
+        kernel_x = q_x.clamp(K_W // 2, (W - 1) - K_W // 2)
+        kernel_y = q_y.clamp(K_H // 2, (H - 1) - K_H // 2)
+        hori_mask = (kernel_x - kv_x).abs() <= K_W // 2
+        vert_mask = (kernel_y - kv_y).abs() <= K_H // 2
         return hori_mask & vert_mask
 
-    natten_mask_mod.__name__ = f"tiled_natten_c{canvas_w}x{canvas_h}_k{kernel_w}x{kernel_h}_t{tile_w}x{tile_h}"
-    return natten_mask_mod
-
+    tiled_natten_mask.__name__ = f"tiled_natten_c{W}x{H}_k{K_W}x{K_H}_t{T_W}x{T_H}"
+    return tiled_natten_mask
 
 def interleave_bits_32(x):
     """
     Interleave the bits of a 16-bit integer x, producing a 32-bit integer
     where the bits of x are interleaved with zeros.
     """
-    x &= 0x0000FFFF  # Ensure x is 16 bits
+    x = x & 0x0000FFFF  # Ensure x is 16 bits
     x = (x | (x << 8)) & 0x00FF00FF
     x = (x | (x << 4)) & 0x0F0F0F0F
     x = (x | (x << 2)) & 0x33333333
@@ -115,7 +116,7 @@ def deinterleave_bits_32(code):
     """
     Deinterleave bits to retrieve the original 16-bit integer.
     """
-    code &= 0x55555555
+    code = code & 0x55555555
     code = (code | (code >> 1)) & 0x33333333
     code = (code | (code >> 2)) & 0x0F0F0F0F
     code = (code | (code >> 4)) & 0x00FF00FF
@@ -206,12 +207,12 @@ def main(device: str = "cpu"):
     
     
     tiled_natten_mask = generate_tiled_natten(
-        canvas_w=CANVAS_WIDTH,
-        canvas_h=CANVAS_HEIGHT,
-        kernel_w=kernel_size,
-        kernel_h=kernel_size,
-        tile_w=2,
-        tile_h=2,
+        W=CANVAS_WIDTH,
+        H=CANVAS_HEIGHT,
+        K_W=kernel_size,
+        K_H=kernel_size,
+        T_W=2,
+        T_H=2,
     )
     visualize_attention_scores(
         # TODO: update visualize_attention_scores to support 2D sequences

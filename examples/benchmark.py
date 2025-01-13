@@ -97,7 +97,8 @@ def test_mask(
     if bias is not None:
         bias = bias.to(dtype=data_type)
         if mask:
-            mask = bias.where(mask, torch.finfo(data_type).min)
+            bias = bias.where(mask, torch.finfo(data_type).min)
+        mask = bias
     else:
         assert mask is not None
 

@@ -28,7 +28,11 @@ from attn_gym.mods import generate_alibi_bias, generate_tanh_softcap
 
 AVAILABLE_EXAMPLES = {
     "causal": lambda: test_mask(mask_mod=causal_mask),
-    "causal_score": lambda: test_mask(score_mod=lambda score, b, h, q_idx, kv_idx: torch.where(causal_mask(b, h, q_idx, kv_idx), score, torch.finfo(score.dtype))),
+    "causal_score": lambda: test_mask(
+        score_mod=lambda score, *args: torch.where(
+            causal_mask(*args), score, torch.finfo(score.dtype).min
+        )
+    ),
     "alibi": lambda: test_mask(score_mod=generate_alibi_bias(16), skip_correctness=False),
     "sliding_window": lambda: test_mask(mask_mod=generate_sliding_window(window_size=1024)),
     "prefix_lm": lambda: test_mask(mask_mod=generate_prefix_lm_mask(prefix_length=1024)),

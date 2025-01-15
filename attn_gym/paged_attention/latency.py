@@ -58,7 +58,7 @@ def benchmark_layer(
             lambda: paged_foo(batch_idx, input_pos, x, converted_block_mask, converted_score_mod)
         )
         print(
-            f"non_paged_latency: {non_paged_latency} ms, paged_latency: {paged_latency} ms, overhead: {round((paged_latency/non_paged_latency-1.0)*100, 2)}%"
+            f"non_paged_latency: {non_paged_latency} ms, paged_latency: {paged_latency} ms, overhead: {round((paged_latency / non_paged_latency - 1.0) * 100, 2)}%"
         )
 
 

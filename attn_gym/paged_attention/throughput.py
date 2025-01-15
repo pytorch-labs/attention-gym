@@ -23,7 +23,6 @@ max batch size without paged attention.
 """
 
 import torch
-from torch.nn.attention.experimental._paged_attention import PagedAttention
 from torch.nn.attention.flex_attention import (
     _identity,
     BlockMask,
@@ -35,6 +34,7 @@ from collections import deque
 from typing import Tuple
 from utils import gen_offset, slice_block_mask
 from model import PagedAttentionLayer
+from paged_attention import PagedAttention
 
 create_block_mask = torch.compile(create_block_mask)
 

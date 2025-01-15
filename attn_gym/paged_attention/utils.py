@@ -6,9 +6,7 @@ from torch.nn.attention.flex_attention import (
 )
 
 
-def batch_reserve(
-    paged_attention: PagedAttention, target_seq_len: torch.Tensor
-):
+def batch_reserve(paged_attention: PagedAttention, target_seq_len: torch.Tensor):
     """Reserves pages for each sequence in the batch.
 
     Args:
@@ -23,9 +21,7 @@ def batch_reserve(
         )
 
 
-def random_init_paged_attention(
-    n_pages: int, page_size: int, bsz: int, max_seq_len: int
-):
+def random_init_paged_attention(n_pages: int, page_size: int, bsz: int, max_seq_len: int):
     """Allocate physical pages across batches in a round-robin fashion to simulate a use case
     where multiple batches run in parallel. This is for testing and benchmarking only.
 
@@ -39,12 +35,9 @@ def random_init_paged_attention(
 
     repeat = bsz // 4
     sequence_lengths = [
-        [max_seq_len // 4, max_seq_len // 2, max_seq_len // 4, max_seq_len // 3]
-            * repeat,
-        [max_seq_len // 4, max_seq_len // 2, max_seq_len // 2, max_seq_len // 2]
-            * repeat,
-        [max_seq_len // 4, max_seq_len // 2, max_seq_len // 2, max_seq_len // 2]
-            * repeat,
+        [max_seq_len // 4, max_seq_len // 2, max_seq_len // 4, max_seq_len // 3] * repeat,
+        [max_seq_len // 4, max_seq_len // 2, max_seq_len // 2, max_seq_len // 2] * repeat,
+        [max_seq_len // 4, max_seq_len // 2, max_seq_len // 2, max_seq_len // 2] * repeat,
         [max_seq_len // 2, max_seq_len, max_seq_len // 2, max_seq_len] * repeat,
         [max_seq_len, max_seq_len, max_seq_len, max_seq_len] * repeat,
     ]
@@ -77,6 +70,7 @@ def generate_score_mod(attn_type: str):
     Args:
         attn_type: Attention type.
     """
+
     def relative_bias(score, b, h, m, n):
         return score + (m - n)
 
@@ -115,7 +109,9 @@ def _adjust_num_blocks_and_indices(
     return num_blocks.clone(), indices.clone()
 
 
-def slice_block_mask(block_mask: BlockMask, batch_idx: int, new_q_len: int, new_kv_len: int) -> BlockMask:
+def slice_block_mask(
+    block_mask: BlockMask, batch_idx: int, new_q_len: int, new_kv_len: int
+) -> BlockMask:
     """Slice the block mask based on the new query and key/value lengths.
 
     Args:

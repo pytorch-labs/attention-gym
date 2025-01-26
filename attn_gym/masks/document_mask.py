@@ -4,7 +4,7 @@ from typing import List, Union
 
 import torch
 from torch import Tensor
-from torch.nn.attention.flex_attention import _mask_mod_signature
+from torch.nn.attention.flex_attention import _mask_mod_signature, noop_mask
 from attn_gym.masks import causal_mask
 
 
@@ -59,7 +59,7 @@ def generate_doc_mask_mod(mask_mod: _mask_mod_signature, offsets: Tensor) -> _ma
     return doc_mask_mod
 
 
-def main(device: str = "cpu"):
+def main(device: str = "cpu", causal: bool = True):
     """Visualize the attention scores of document causal mask mod.
 
     Args:
@@ -93,7 +93,11 @@ def main(device: str = "cpu"):
         return torch.ones(B, H, SEQ_LEN, HEAD_DIM, device=device)
 
     query, key = make_tensor(), make_tensor()
-    document_causal_mask = generate_doc_mask_mod(causal_mask, offsets)
+    if causal:
+        base_mask_mod = causal_mask
+    else:
+        base_mask_mod = noop_mask
+    document_causal_mask = generate_doc_mask_mod(base_mask_mod, offsets)
 
     visualize_attention_scores(
         query,

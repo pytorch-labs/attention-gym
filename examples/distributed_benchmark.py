@@ -32,14 +32,14 @@ def get_device_type() -> str:
 def create_block_mask_cached(score_mod, B, H, M, N, device="cuda"):
     block_mask = create_block_mask(score_mod, B, H, M, N, device=device)
     return block_mask
-    
+
 
 # TODO: re-write it into a wrapper???
 def rewrite_mask_mod_for_cp(
     mask_mod: _mask_mod_signature,
     rank: int,
     block_size: int,
-    load_balancer_output: List[List[int]],
+    load_balancer_output: torch.Tensor,
 ) -> _mask_mod_signature:
     def local_q_idx_to_q_idx(local_q_idx) -> int:
         # calculate local block_idx and block_offset
@@ -152,16 +152,20 @@ def test_mask_with_load_balance(
     # unshard
     cp_out_dist = DTensor.from_local(cp_out, device_mesh, [Shard(seq_dim)])
     full_cp_out_dist = cp_out_dist.full_tensor()
-    blk_idx_to_origin = [idx for idx_list in load_balancer_output for idx in idx_list]
-    blk_list_rearranged = [None] * len(blk_idx_to_origin)
-    blk_list = torch.chunk(full_cp_out_dist, dim=seq_dim)
-    assert len(blk_idx_to_origin) == len(blk_list)
-    for blk, blk_idx_origin in zip(blk_list, blk_idx_to_origin):
-        blk_list_rearranged[blk_idx_origin] = blk
+    # rearrange
+    blk_idx_to_origin = load_balancer_output.view(-1)
+    num_chunks = blk_idx_to_origin.numel()
+    blk_list_rearranged = [None] * num_chunks
+    blk_list = torch.chunk(full_cp_out_dist, num_chunks, dim=seq_dim)
+    assert len(blk_list) == num_chunks
+    for blk_idx, blk in enumerate(blk_list):
+        blk_list_rearranged[blk_idx_to_origin[blk_idx].item()] = blk
 
     full_cp_out_dist = torch.cat(blk_list_rearranged, dim=seq_dim)
-    
 
+    # local flex attention
+    expect_out = flex_attention(*qkv, block_mask=block_mask)
+    torch.testing.assert_close(full_cp_out_dist, expect_out, atol=1e-1, rtol=1e-2)
 
 
 def load_balancing_example(world_size: int, rank: int) -> None:
@@ -175,7 +179,7 @@ def load_balancing_example(world_size: int, rank: int) -> None:
     # init device mesh
     device_mesh = init_device_mesh(device_type=device_type, mesh_shape=(world_size,))
 
-    run_document_masking(device_mesh, max_seq_len=8192, num_docs=12)
+    run_document_masking(device_mesh, max_seq_len=4096, num_docs=12)
     
 
 if __name__ == "__main__":

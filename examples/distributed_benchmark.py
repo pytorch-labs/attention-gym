@@ -1,12 +1,11 @@
 from functools import lru_cache
-from typing import Optional, List
+from typing import Optional
 
 import os
 import torch
 import torch.distributed as dist
-import torch.nn.functional as F
 from torch.distributed.device_mesh import init_device_mesh
-from torch.distributed.tensor import distribute_tensor, DTensor, DeviceMesh, Partial, Replicate, Shard
+from torch.distributed.tensor import distribute_tensor, DTensor, DeviceMesh, Replicate, Shard
 
 
 from torch.nn.attention.flex_attention import (

@@ -107,16 +107,48 @@ def test_mask_with_load_balance(
         for _ in range(3)
     ]
 
-    # TODO: input sharding with load-balancing
-    # sparsity_info = get_sparsity_info_from_block_mask(block_mask)
-    # load_balancer_output = load_balance_algo(sparsity_info)
+    # NOTE: this shuffle op can be done in other ways
+    def shuffle_tensor_for_load_balancing(
+        x: torch.Tensor, shuffle_tensor: torch.Tensor, dim: int
+    ) -> torch.Tensor:
+        # shuffle the tensor
+        num_chunks = shuffle_tensor.numel()
+        x_chunk_list = torch.chunk(x, num_chunks, dim=dim)
+        assert len(x_chunk_list) == num_chunks
+        new_x_chunk_list = [None] * num_chunks
+        for blk_idx in range(num_chunks):
+            new_x_chunk_list[blk_idx] = x_chunk_list[shuffle_tensor[blk_idx].item()]
+
+        return torch.cat(new_x_chunk_list, dim=dim)
+
+    def interchange_index_value_2d(tensor: torch.Tensor) -> torch.Tensor:
+        """
+        Interchange the index and value in a PyTorch tensor. The input tensor has
+        structure: rank -> [block_idx, ...] and the output tensor will be:
+        block_idx -> block_idx_in_shuffled_tensor
+        """
+        flattened_tensor = tensor.view(-1)
+        indices = torch.arange(
+            flattened_tensor.numel(), device=flattened_tensor.device
+        )
+        revert_tensor = torch.empty_like(flattened_tensor)
+        revert_tensor[flattened_tensor] = indices
+
+        return revert_tensor
+
     cp_mesh_size = device_mesh.size()
     load_balancer_output = load_balance_algo(S, cp_mesh_size, block_size)
 
     seq_dim = 2
+    # copy QKV
+    qkv_copy = [t.detach().clone() for t in qkv]
+    # shuffle Q
+    qkv_copy[0] = shuffle_tensor_for_load_balancing(
+        qkv_copy[0], load_balancer_output.view(-1), dim=seq_dim
+    )
     qkv_dist = [
         distribute_tensor(
-            t.detach().clone().requires_grad_(), device_mesh, [
+            t.requires_grad_(), device_mesh, [
                 Shard(seq_dim) if i == 0 else Replicate()
             ]
         )
@@ -152,15 +184,10 @@ def test_mask_with_load_balance(
     cp_out_dist = DTensor.from_local(cp_out, device_mesh, [Shard(seq_dim)])
     full_cp_out_dist = cp_out_dist.full_tensor()
     # rearrange
-    blk_idx_to_origin = load_balancer_output.view(-1)
-    num_chunks = blk_idx_to_origin.numel()
-    blk_list_rearranged = [None] * num_chunks
-    blk_list = torch.chunk(full_cp_out_dist, num_chunks, dim=seq_dim)
-    assert len(blk_list) == num_chunks
-    for blk_idx, blk in enumerate(blk_list):
-        blk_list_rearranged[blk_idx_to_origin[blk_idx].item()] = blk
-
-    full_cp_out_dist = torch.cat(blk_list_rearranged, dim=seq_dim)
+    blk_idx_shuffled = interchange_index_value_2d(load_balancer_output)
+    full_cp_out_dist = shuffle_tensor_for_load_balancing(
+        full_cp_out_dist, blk_idx_shuffled, dim=seq_dim
+    )
 
     # local flex attention
     expect_out = flex_attention(*qkv, block_mask=block_mask)
@@ -179,7 +206,7 @@ def load_balancing_example(world_size: int, rank: int) -> None:
     device_mesh = init_device_mesh(device_type=device_type, mesh_shape=(world_size,))
 
     run_document_masking(device_mesh, max_seq_len=4096, num_docs=12)
-    
+
 
 if __name__ == "__main__":
     # this script is launched via torchrun which automatically manages ProcessGroup

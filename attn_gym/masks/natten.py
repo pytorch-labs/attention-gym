@@ -66,9 +66,9 @@ def generate_tiled_natten(
         Map 1-D index to 2-D coordinates for static tiles of T_H x T_W.
         """
         t_id = idx // (T_H * T_W)
-        t_x, t_y = t_id // (W // T_W), t_id % (W // T_W)
+        t_y, t_x = t_id // (W // T_W), t_id % (W // T_W)
         t_offset = idx % (T_H * T_W)
-        i_x, i_y = t_offset // T_W, t_offset % T_W
+        i_y, i_x = t_offset // T_W, t_offset % T_W
         return t_x * T_W + i_x, t_y * T_H + i_y
 
     def tiled_natten_mask(

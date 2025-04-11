@@ -1,6 +1,5 @@
 import torch
 from typing import Optional
-import matplotlib.pyplot as plt
 from pathlib import Path
 import numpy as np
 import math
@@ -100,6 +99,8 @@ def visualize_attention_scores(
     Returns:
         None
     """
+    import matplotlib.pyplot as plt
+
     assert score_mod is not None or mask_mod is not None, (
         "Must provide either score_mod or mask_mod"
     )

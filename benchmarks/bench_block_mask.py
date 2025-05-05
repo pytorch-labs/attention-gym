@@ -113,8 +113,7 @@ def run_experiment(config: ExperimentConfig) -> ExperimentResult:
     assert config.mask_mod_name in MASK_MOD_MAP, f"Mask mod '{config.mask_mod_name}' not found."
     mask_mod_fn = get_mask_mod(config)
 
-    # --- Time Benchmarking ---
-    cbm = torch.compile(create_block_mask)
+    cbm = torch.compile(create_block_mask, dynamic=False)
     # Warmup
     for _ in range(10):
         cbm(mask_mod_fn, config.B, config.H, config.M, config.N, device=device)
@@ -167,8 +166,6 @@ def get_configs() -> List[ExperimentConfig]:
     # Define ranges for benchmark parameters
     Bs = [1]
     Hs = [8]
-    # Sequence lengths - adjust as needed
-    # Using powers of 2 up to a reasonable limit for mask creation
     SeqLens = [8192, 16384, 32768]
     # Map string names to mask functions
     mask_mods_to_run = list(MASK_MOD_MAP.keys())
@@ -198,9 +195,7 @@ def main():
             results.append(Experiment(config=config, result=result))
         except Exception as e:
             print(f"Failed to run config {config}: {e}")
-            # Optionally skip failed configs or handle differently
 
-    # Use Tabulate to print results
     print_results(results)
 
 

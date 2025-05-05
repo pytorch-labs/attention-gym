@@ -1,24 +1,12 @@
 import itertools
 from dataclasses import dataclass
-from typing import List
+from typing import List, Callable
 
 import torch
 from tabulate import tabulate
 from tqdm import tqdm
 import random
-import sys
-from importlib.util import find_spec
-
-# Check if transformer_nuggets is available
-if find_spec("transformer_nuggets") is None:
-    print(
-        "Need to install transformer_nuggets for this benchmark. "
-        "Run `pip install git+https://github.com/drisspg/transformer_nuggets`"
-    )
-    sys.exit(1)
-
-from transformer_nuggets.utils import benchmark_cuda_function_in_microseconds, cuda_memory_usage
-
+from triton.testing import do_bench
 
 from attn_gym.masks import (
     causal_mask,
@@ -37,6 +25,45 @@ device = torch.device("cuda")
 torch._dynamo.config.cache_size_limit = 1000
 
 
+def benchmark_cuda_function_in_microseconds(func: Callable, *args, **kwargs) -> float:
+    """Thin wrapper around do_bench_using_profiling"""
+    no_args = lambda: func(*args, **kwargs)
+    time = do_bench(no_args)
+    return time * 1e3
+
+
+class cuda_memory_usage:
+    """Prints the difference CUDA memory usage at the end of a context manager
+
+    Args:
+        log (bool): Whether to print the memory usage to the console
+        precision (int): The number of decimal places to print
+
+    Usage:
+    ```
+        with cuda_memory_usage() as mem:
+            # code to profile
+        print(mem.memory_usage)
+    ```
+
+    """
+
+    def __init__(self, log=False, precision=2):
+        self.log = log
+        self.precision = precision
+        self.memory_usage = 0
+
+    def __enter__(self):
+        self.initial_memory = torch.cuda.memory_allocated()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.memory_usage = torch.cuda.memory_allocated() - self.initial_memory
+        if self.log:
+            memory_usage_gib = self.memory_usage / (1024**3)
+            print(f"CUDA memory usage: {memory_usage_gib:.{self.precision}f} GiB")
+
+
 MASK_MOD_MAP = {
     "causal": causal_mask,
     "sliding_window": generate_sliding_window,
@@ -53,6 +80,7 @@ class ExperimentConfig:
     M: int
     N: int
     mask_mod_name: str
+    dynamic: bool
 
 
 @dataclass(frozen=True)
@@ -113,7 +141,7 @@ def run_experiment(config: ExperimentConfig) -> ExperimentResult:
     assert config.mask_mod_name in MASK_MOD_MAP, f"Mask mod '{config.mask_mod_name}' not found."
     mask_mod_fn = get_mask_mod(config)
 
-    cbm = torch.compile(create_block_mask, dynamic=False)
+    cbm = torch.compile(create_block_mask, dynamic=config.dynamic)
     # Warmup
     for _ in range(10):
         cbm(mask_mod_fn, config.B, config.H, config.M, config.N, device=device)
@@ -141,6 +169,7 @@ def print_results(experiments: List[Experiment]):
         "M",
         "N",
         "Mask Mod",
+        "Dynamic",
         "Creation Time (ms)",
         "Memory (GiB)",
     ]
@@ -153,6 +182,7 @@ def print_results(experiments: List[Experiment]):
                 experiment.config.M,
                 experiment.config.N,
                 experiment.config.mask_mod_name,
+                experiment.config.dynamic,
                 f"{experiment.result.creation_time_ms:.4f}",
                 f"{experiment.result.memory_bytes:.2f}",
             ]
@@ -169,9 +199,12 @@ def get_configs() -> List[ExperimentConfig]:
     SeqLens = [8192, 16384, 32768]
     # Map string names to mask functions
     mask_mods_to_run = list(MASK_MOD_MAP.keys())
+    dynamic = [
+        False,
+    ]
 
     configs = []
-    for B, H, S, mask_mod in itertools.product(Bs, Hs, SeqLens, mask_mods_to_run):
+    for B, H, S, mask_mod, dyn in itertools.product(Bs, Hs, SeqLens, mask_mods_to_run, dynamic):
         configs.append(
             ExperimentConfig(
                 B=B,
@@ -179,6 +212,7 @@ def get_configs() -> List[ExperimentConfig]:
                 M=S,  # Assuming M=N for simplicity
                 N=S,
                 mask_mod_name=mask_mod,
+                dynamic=dyn,
             )
         )
     return configs
@@ -186,6 +220,7 @@ def get_configs() -> List[ExperimentConfig]:
 
 def main():
     torch.random.manual_seed(123)
+    random.seed(123)
     configs = get_configs()
     results = []
     print(f"Running {len(configs)} benchmark configurations...")

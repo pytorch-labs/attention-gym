@@ -1,4 +1,4 @@
-"""Implementation of Multi-head Level Attention (MLA) RoPE score modification from DeepSeek-V2.
+"""Implementation of Multi-head Latent Attention (MLA) RoPE score modification from DeepSeek-V2.
 
 Reference: https://arxiv.org/pdf/2405.04434 - DeepSeek-V2: A Strong, Economical, and
 Efficient Mixture-of-Experts Language Model

@@ -163,3 +163,6 @@ cython_debug/
 #.idea/
 .vscode
 __pycache__
+
+# Local Claude development notes
+CLAUDE.local.md

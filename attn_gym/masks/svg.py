@@ -20,7 +20,7 @@ def generate_spatial_head_mask_mod(
     round_width: int = 128,
 ) -> _mask_mod_signature:
     """
-    Generates a spatial head mask as specified in SVG. The same mask can also be used for 
+    Generates a spatial head mask as specified in SVG. The same mask can also be used for
     temporal attention mask after applying the layout transformation by setting `attn_sink` to False.
 
     Args:
@@ -31,9 +31,10 @@ def generate_spatial_head_mask_mod(
         attn_sink: Whether to use the attention sink for the first column.
         round_width: The number to round to for better hardware utilization, usually set to 128.
     """
+
     def round_to_multiple(idx):
         return floor(idx / round_width) * round_width
-        
+
     def spatial_mask_mod(b, h, q_idx, kv_idx):
         first_row_mask = q_idx < prompt_length
         if attn_sink:
@@ -42,9 +43,9 @@ def generate_spatial_head_mask_mod(
             first_column_mask = kv_idx < prompt_length
 
         mask_width = round_to_multiple(width * token_per_frame)
-        spatial_head_mask = (torch.abs(q_idx - kv_idx) < mask_width)
+        spatial_head_mask = torch.abs(q_idx - kv_idx) < mask_width
         return first_column_mask | first_row_mask | spatial_head_mask
-    
+
     return spatial_mask_mod
 
 
@@ -64,9 +65,10 @@ def generate_temporal_head_mask_mod(
         width: The width of the temporal head mask, determine the number of frames that can be attended.
         round_width: The number to round to for better hardware utilization, usually set to 128.
     """
+
     def get_token_id_in_frame(idx, prompt_length):
         return (idx - prompt_length) % token_per_frame
-    
+
     def temporal_mask_mod(b, h, q_idx, kv_idx):
         first_row_mask = q_idx < prompt_length
         first_column_mask = kv_idx < prompt_length
@@ -74,15 +76,15 @@ def generate_temporal_head_mask_mod(
         mask_width = (width * token_per_frame) // num_frames
         q_token_id = get_token_id_in_frame(q_idx, prompt_length)
         kv_token_id = get_token_id_in_frame(kv_idx, prompt_length)
-        temporal_head_mask = (torch.abs(q_token_id - kv_token_id) < mask_width)
+        temporal_head_mask = torch.abs(q_token_id - kv_token_id) < mask_width
         return first_column_mask | first_row_mask | temporal_head_mask
-    
+
     return temporal_mask_mod
 
 
 def main(device: str = "cpu", causal: bool = True):
     """Visualize the attention scores of spatial head mask mod and temporal head mask mod.
-    
+
     For reference on how to use a the sparse attention mask mod, checkout:
         1. https://github.com/svg-project/Sparse-VideoGen/blob/d0b2dfea4fd1e0069f0e6d0a42292649550e21af/svg/models/wan/utils.py#L23
         2. https://github.com/svg-project/Sparse-VideoGen/blob/d0b2dfea4fd1e0069f0e6d0a42292649550e21af/svg/models/wan/attention.py#L162
@@ -98,17 +100,17 @@ def main(device: str = "cpu", causal: bool = True):
     # Basic parameters for the input tensor
     PROMPT_LENGTH, NUM_FRAMES, TOKEN_PER_FRAME = 2, 10, 14
     B, H, SEQ_LEN, HEAD_DIM = 1, 1, PROMPT_LENGTH + NUM_FRAMES * TOKEN_PER_FRAME, 8
-    
+
     # Parameters for the spatial head mask
     WIDTH = 2
-    ROUND_WIDTH = 4 # Set to 4 for better visualization
+    ROUND_WIDTH = 4  # Set to 4 for better visualization
     ATTN_SINK = True
 
     def make_tensor():
         return torch.ones(B, H, SEQ_LEN, HEAD_DIM, device=device)
 
     query, key = make_tensor(), make_tensor()
-        
+
     spatial_head_mask = generate_spatial_head_mask_mod(
         prompt_length=PROMPT_LENGTH,
         num_frames=NUM_FRAMES,
@@ -125,14 +127,14 @@ def main(device: str = "cpu", causal: bool = True):
         device=device,
         name="svg_spatial_head_mask",
     )
-    
+
     temporal_head_mask = generate_temporal_head_mask_mod(
         prompt_length=PROMPT_LENGTH,
         num_frames=NUM_FRAMES,
         token_per_frame=TOKEN_PER_FRAME,
         width=WIDTH,
     )
-    
+
     visualize_attention_scores(
         query,
         key,

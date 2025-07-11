@@ -18,7 +18,6 @@ from attn_gym.masks.document_mask import generate_random_lengths, length_to_offs
 
 from torch.nn.attention.flex_attention import create_block_mask, _mask_mod_signature, noop_mask
 
-
 has_nuggies = importlib.util.find_spec("transformer_nuggets")
 if not has_nuggies:
     print(
@@ -27,8 +26,11 @@ if not has_nuggies:
     )
     # Exit if the dependency is missing
     sys.exit(1)
-from transformer_nuggets.utils import benchmark_cuda_function_in_microseconds, cuda_memory_usage  # noqa: E402
 
+from transformer_nuggets.utils import (  # noqa: E402
+    cuda_memory_usage,
+    benchmark_cuda_function_in_microseconds_triton,
+)
 
 device = torch.device("cuda")
 
@@ -118,17 +120,18 @@ def run_experiment(config: ExperimentConfig) -> ExperimentResult:
         cbm(mask_mod_fn, config.B, config.H, config.M, config.N, device=device)
     torch.cuda.synchronize(device)
 
-    creation_time_ms = benchmark_cuda_function_in_microseconds(
+    creation_time_us = benchmark_cuda_function_in_microseconds_triton(
         lambda: cbm(mask_mod_fn, config.B, config.H, config.M, config.N, device=device),
     )
 
     torch.cuda.synchronize(device)
 
     with cuda_memory_usage() as mem:
-        cbm(mask_mod_fn, config.B, config.H, config.M, config.N, device=device)
+        bm = cbm(mask_mod_fn, config.B, config.H, config.M, config.N, device=device)
 
+    del bm
     return ExperimentResult(
-        creation_time_ms=creation_time_ms * 1000,
+        creation_time_ms=creation_time_us / 1000,
         memory_bytes=mem.memory_usage,  #
     )
 
@@ -153,7 +156,7 @@ def print_results(experiments: List[Experiment]):
                 experiment.config.N,
                 experiment.config.mask_mod_name,
                 f"{experiment.result.creation_time_ms:.4f}",
-                f"{experiment.result.memory_bytes:.2f}",
+                f"{experiment.result.memory_bytes/(1024**3):.4f}",
             ]
         )
     # Sort rows for better readability (e.g., by B, H, M, N)

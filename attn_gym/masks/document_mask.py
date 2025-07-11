@@ -1,5 +1,6 @@
 """Generates a document causal attention mask based on a document ID tensor"""
 
+import random
 from typing import List, Union
 
 import torch
@@ -59,6 +60,19 @@ def generate_doc_mask_mod(mask_mod: _mask_mod_signature, offsets: Tensor) -> _ma
     return doc_mask_mod
 
 
+def generate_random_lengths(total_length, num_documents):
+    # Initialize all lengths to 1 to ensure each document has at least one token
+    lengths = [1] * num_documents
+    remaining_length = total_length - num_documents
+
+    # Randomly distribute the remaining length
+    for _ in range(remaining_length):
+        index = random.randint(0, num_documents - 1)
+        lengths[index] += 1
+
+    return lengths
+
+
 def main(device: str = "cpu", causal: bool = True):
     """Visualize the attention scores of document causal mask mod.
 
@@ -66,27 +80,12 @@ def main(device: str = "cpu", causal: bool = True):
         device (str): Device to use for computation. Defaults to "cpu".
     """
     from attn_gym import visualize_attention_scores
-    import random
-
     random.seed(0)
-
-    def generate_random_lengths(total_length, num_documents):
-        # Initialize all lengths to 1 to ensure each document has at least one token
-        lengths = [1] * num_documents
-        remaining_length = total_length - num_documents
-
-        # Randomly distribute the remaining length
-        for _ in range(remaining_length):
-            index = random.randint(0, num_documents - 1)
-            lengths[index] += 1
-
-        return lengths
 
     max_seq_len, doc_count = 21, 4
     B, H, SEQ_LEN, HEAD_DIM = 1, 1, max_seq_len, 8
 
     lengths = generate_random_lengths(max_seq_len, doc_count)
-
     offsets = length_to_offsets(lengths, device)
 
     def make_tensor():

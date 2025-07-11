@@ -14,8 +14,9 @@ from attn_gym.masks import (
     generate_doc_mask_mod,
     generate_dilated_sliding_window,
 )
+from attn_gym.masks.document_mask import generate_random_lengths, length_to_offsets
 
-from torch.nn.attention.flex_attention import create_block_mask, _mask_mod_signature
+from torch.nn.attention.flex_attention import create_block_mask, _mask_mod_signature, noop_mask
 
 
 has_nuggies = importlib.util.find_spec("transformer_nuggets")
@@ -65,19 +66,20 @@ class Experiment:
     result: ExperimentResult
 
 
-def get_mask_mod(name: str) -> _mask_mod_signature:
-    match name:
+def get_mask_mod(c: ExperimentConfig) -> _mask_mod_signature:
+    match c.mask_mod_name:
         case "sliding_window":
-            return generate_sliding_window()
+            return generate_sliding_window(window_size=128)
         case "prefix_lm":
-            return generate_prefix_lm_mask()
+            return generate_prefix_lm_mask(prefix_length=128)
         case "doc_mask_mod":
-            return generate_doc_mask_mod()
+            lengths = generate_random_lengths(total_length=c.M, num_documents=4)
+            offsets = length_to_offsets(lengths, device)
+            return generate_doc_mask_mod(mask_mod=noop_mask, offsets=offsets)
         case "dilated_sliding_window":
-            return generate_dilated_sliding_window()
+            return generate_dilated_sliding_window(window_size=128, dilation=2)
         case _:
-            mod = MASK_MOD_MAP[name]
-            return mod
+            return MASK_MOD_MAP[c.mask_mod_name]
 
 
 def get_configs() -> List[ExperimentConfig]:
@@ -107,7 +109,7 @@ def get_configs() -> List[ExperimentConfig]:
 def run_experiment(config: ExperimentConfig) -> ExperimentResult:
     # Find the mask_mod function by name
     assert config.mask_mod_name in MASK_MOD_MAP, f"Mask mod '{config.mask_mod_name}' not found."
-    mask_mod_fn = get_mask_mod(config.mask_mod_name)
+    mask_mod_fn = get_mask_mod(config)
 
     # --- Time Benchmarking ---
     cbm = torch.compile(create_block_mask)
@@ -122,12 +124,12 @@ def run_experiment(config: ExperimentConfig) -> ExperimentResult:
 
     torch.cuda.synchronize(device)
 
-    with cuda_memory_usage() as memory_bytes:
+    with cuda_memory_usage() as mem:
         cbm(mask_mod_fn, config.B, config.H, config.M, config.N, device=device)
 
     return ExperimentResult(
         creation_time_ms=creation_time_ms * 1000,
-        memory_bytes=memory_bytes,  #
+        memory_bytes=mem.memory_usage,  #
     )
 
 

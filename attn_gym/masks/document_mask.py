@@ -80,6 +80,7 @@ def main(device: str = "cpu", causal: bool = True):
         device (str): Device to use for computation. Defaults to "cpu".
     """
     from attn_gym import visualize_attention_scores
+
     random.seed(0)
 
     max_seq_len, doc_count = 21, 4

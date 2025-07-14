@@ -14,6 +14,7 @@ from attn_gym.masks import (
     generate_doc_mask_mod,
     generate_dilated_sliding_window,
 )
+from attn_gym.masks.causal import create_causal_block_mask_fast
 from attn_gym.masks.document_mask import generate_random_lengths, length_to_offsets
 
 from torch.nn.attention.flex_attention import create_block_mask, _mask_mod_signature, noop_mask
@@ -39,12 +40,16 @@ device = torch.device("cuda")
 torch._dynamo.config.cache_size_limit = 1000
 
 
-MASK_MOD_MAP = {
+FUNCTION_BASED_CREATORS = {
     "causal": causal_mask,
     "sliding_window": generate_sliding_window,
     "prefix_lm": generate_prefix_lm_mask,
     "doc_mask_mod": generate_doc_mask_mod,
     "dilated_sliding_window": generate_dilated_sliding_window,
+}
+
+CUSTOM_CREATORS = {
+    "causal_fast": lambda B, H, M, N, device: create_causal_block_mask_fast(B, H, M, N, device),
 }
 
 
@@ -83,26 +88,37 @@ def get_mask_mod(c: ExperimentConfig) -> _mask_mod_signature:
         case "dilated_sliding_window":
             return generate_dilated_sliding_window(window_size=128, dilation=2)
         case _:
-            return MASK_MOD_MAP[c.mask_mod_name]
+            return FUNCTION_BASED_CREATORS[c.mask_mod_name]
 
 
-def get_configs() -> List[ExperimentConfig]:
-    # Define ranges for benchmark parameters
-    Bs = [1, 4, 8]
-    Hs = [8, 16]
-    # Sequence lengths - adjust as needed
-    # Using powers of 2 up to a reasonable limit for mask creation
-    SeqLens = [1024, 2048, 4096, 8192]
+def get_configs(
+    mask_types: List[str] | None,
+    batch_sizes: List[int],
+    num_heads: List[int],
+    seq_lens: List[int],
+) -> List[ExperimentConfig]:
     # Map string names to mask functions
-    mask_mods_to_run = list(MASK_MOD_MAP.keys())
+    all_available_masks = list(FUNCTION_BASED_CREATORS.keys()) + list(CUSTOM_CREATORS.keys())
+
+    # Filter mask types if provided
+    if mask_types is not None:
+        # Check if all provided mask types are valid
+        invalid_masks = [mask for mask in mask_types if mask not in all_available_masks]
+        if invalid_masks:
+            print(f"Invalid mask types: {invalid_masks}")
+            print(f"Available mask types: {all_available_masks}")
+            sys.exit(1)
+        mask_mods_to_run = mask_types
+    else:
+        mask_mods_to_run = all_available_masks
 
     configs = []
-    for B, H, S, mask_mod in itertools.product(Bs, Hs, SeqLens, mask_mods_to_run):
+    for B, H, S, mask_mod in itertools.product(batch_sizes, num_heads, seq_lens, mask_mods_to_run):
         configs.append(
             ExperimentConfig(
                 B=B,
                 H=H,
-                M=S,  # Assuming M=N for simplicity
+                M=S,
                 N=S,
                 mask_mod_name=mask_mod,
             )
@@ -111,30 +127,58 @@ def get_configs() -> List[ExperimentConfig]:
 
 
 def run_experiment(config: ExperimentConfig) -> ExperimentResult:
-    # Find the mask_mod function by name
-    assert config.mask_mod_name in MASK_MOD_MAP, f"Mask mod '{config.mask_mod_name}' not found."
-    mask_mod_fn = get_mask_mod(config)
+    # Determine if this is a function-based or custom creator
+    assert (
+        config.mask_mod_name in FUNCTION_BASED_CREATORS or config.mask_mod_name in CUSTOM_CREATORS
+    ), f"Mask mod '{config.mask_mod_name}' not found."
 
-    # --- Time Benchmarking ---
-    cbm = torch.compile(create_block_mask)
-    # Warmup
-    for _ in range(10):
-        cbm(mask_mod_fn, config.B, config.H, config.M, config.N, device=device)
-    torch.cuda.synchronize(device)
+    if config.mask_mod_name in FUNCTION_BASED_CREATORS:
+        # Function-based approach using create_block_mask
+        mask_mod_fn = get_mask_mod(config)
+        cbm = torch.compile(create_block_mask)
 
-    creation_time_us = benchmark_cuda_function_in_microseconds_triton(
-        lambda: cbm(mask_mod_fn, config.B, config.H, config.M, config.N, device=device),
-    )
+        # Warmup
+        for _ in range(10):
+            cbm(mask_mod_fn, config.B, config.H, config.M, config.N, device=device)
+        torch.cuda.synchronize(device)
 
-    torch.cuda.synchronize(device)
+        creation_time_us = benchmark_cuda_function_in_microseconds_triton(
+            lambda: cbm(mask_mod_fn, config.B, config.H, config.M, config.N, device=device),
+        )
 
-    with cuda_memory_usage() as mem:
-        bm = cbm(mask_mod_fn, config.B, config.H, config.M, config.N, device=device)
-    del bm
+        torch.cuda.synchronize(device)
 
-    with max_memory_usage() as max_mem:
-        bm = cbm(mask_mod_fn, config.B, config.H, config.M, config.N, device=device)
-    del bm
+        with cuda_memory_usage() as mem:
+            bm = cbm(mask_mod_fn, config.B, config.H, config.M, config.N, device=device)
+        del bm
+
+        with max_memory_usage() as max_mem:
+            bm = cbm(mask_mod_fn, config.B, config.H, config.M, config.N, device=device)
+        del bm
+
+    else:
+        # Custom creator approach
+        custom_creator = CUSTOM_CREATORS[config.mask_mod_name]
+        compiled_creator = torch.compile(custom_creator)
+
+        # Warmup
+        for _ in range(10):
+            compiled_creator(config.B, config.H, config.M, config.N, device)
+        torch.cuda.synchronize(device)
+
+        creation_time_us = benchmark_cuda_function_in_microseconds_triton(
+            lambda: compiled_creator(config.B, config.H, config.M, config.N, device),
+        )
+
+        torch.cuda.synchronize(device)
+
+        with cuda_memory_usage() as mem:
+            bm = compiled_creator(config.B, config.H, config.M, config.N, device)
+        del bm
+
+        with max_memory_usage() as max_mem:
+            bm = compiled_creator(config.B, config.H, config.M, config.N, device)
+        del bm
 
     return ExperimentResult(
         creation_time_ms=creation_time_us / 1000,
@@ -170,12 +214,38 @@ def print_results(experiments: List[Experiment]):
         )
     # Sort rows for better readability (e.g., by B, H, M, N)
     rows.sort(key=lambda x: (x[0], x[1], x[2], x[3]))
-    print(tabulate(rows, headers=headers, tablefmt="grid"))
+    print(tabulate(rows, headers=headers, tablefmt="github"))
 
 
-def main():
+def main(
+    mask_types: List[str] | None = None,
+    batch_sizes: List[int] | None = None,
+    num_heads: List[int] | None = None,
+    seq_lens: List[int] | None = None,
+):
+    """
+    Run block mask benchmarks.
+
+    Args:
+        mask_types: Optional list of mask types to benchmark. If not provided, all available mask types will be used.
+                   Example usage: --mask_types '[causal, causal_fast]'
+        batch_sizes: Optional list of batch sizes to benchmark. Default: [1, 4, 8]
+                    Example usage: --batch_sizes '[1, 2, 4]'
+        num_heads: Optional list of number of heads to benchmark. Default: [8, 16]
+                  Example usage: --num_heads '[8, 12, 16]'
+        seq_lens: Optional list of sequence lengths to benchmark. Default: [1024, 2048, 4096, 8192]
+                 Example usage: --seq_lens '[1024, 2048]'
+    """
+    # Handle defaults
+    if batch_sizes is None:
+        batch_sizes = [1, 4, 8]
+    if num_heads is None:
+        num_heads = [8, 16]
+    if seq_lens is None:
+        seq_lens = [1024, 2048, 4096, 8192]
+
     torch.random.manual_seed(123)
-    configs = get_configs()
+    configs = get_configs(mask_types, batch_sizes, num_heads, seq_lens)
     results = []
     print(f"Running {len(configs)} benchmark configurations...")
     for config in tqdm(configs):
@@ -184,11 +254,11 @@ def main():
             results.append(Experiment(config=config, result=result))
         except Exception as e:
             print(f"Failed to run config {config}: {e}")
-            # Optionally skip failed configs or handle differently
 
-    # Use Tabulate to print results
     print_results(results)
 
 
 if __name__ == "__main__":
-    main()
+    from jsonargparse import CLI
+
+    CLI(main)

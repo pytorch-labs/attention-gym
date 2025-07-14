@@ -28,6 +28,7 @@ if not has_nuggies:
     sys.exit(1)
 
 from transformer_nuggets.utils import (  # noqa: E402
+    max_memory_usage,
     cuda_memory_usage,
     benchmark_cuda_function_in_microseconds_triton,
 )
@@ -60,6 +61,7 @@ class ExperimentConfig:
 class ExperimentResult:
     creation_time_ms: float
     memory_bytes: int
+    max_memory_usage: int
 
 
 @dataclass(frozen=True)
@@ -128,11 +130,16 @@ def run_experiment(config: ExperimentConfig) -> ExperimentResult:
 
     with cuda_memory_usage() as mem:
         bm = cbm(mask_mod_fn, config.B, config.H, config.M, config.N, device=device)
-
     del bm
+
+    with max_memory_usage() as max_mem:
+        bm = cbm(mask_mod_fn, config.B, config.H, config.M, config.N, device=device)
+    del bm
+
     return ExperimentResult(
         creation_time_ms=creation_time_us / 1000,
-        memory_bytes=mem.memory_usage,  #
+        memory_bytes=mem.memory_usage,
+        max_memory_usage=max_mem.max_memory,
     )
 
 
@@ -144,7 +151,8 @@ def print_results(experiments: List[Experiment]):
         "N",
         "Mask Mod",
         "Creation Time (ms)",
-        "Memory (GiB)",
+        "Mask Size Memory (GiB)",
+        "Max Construction Memory (GiB)",
     ]
     rows = []
     for experiment in experiments:
@@ -157,6 +165,7 @@ def print_results(experiments: List[Experiment]):
                 experiment.config.mask_mod_name,
                 f"{experiment.result.creation_time_ms:.4f}",
                 f"{experiment.result.memory_bytes/(1024**3):.4f}",
+                f"{experiment.result.max_memory_usage/(1024**3):.4f}",
             ]
         )
     # Sort rows for better readability (e.g., by B, H, M, N)

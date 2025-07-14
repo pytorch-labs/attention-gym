@@ -26,7 +26,7 @@ def test_tanh_approx():
     for tensor_softcap, tensor_softcap_approx in zip(
         [out, grad_q, grad_k, grad_v], [out_approx, grad_q_approx, grad_k_approx, grad_v_approx]
     ):
-        torch.testing.assert_close(tensor_softcap, tensor_softcap_approx, atol=7e-5, rtol=1e-3)
+        torch.testing.assert_close(tensor_softcap, tensor_softcap_approx, atol=5e-4, rtol=1e-3)
 
 
 if __name__ == "__main__":

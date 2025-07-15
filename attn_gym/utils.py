@@ -170,3 +170,13 @@ def visualize_attention_scores(
     plt.close(fig)  # Close the figure to free up memory
 
     print(f"Visualization saved as {file_path}")
+
+
+def cdiv(a: int, b: int) -> int:
+    """Ceiling integer division"""
+    return (a + b - 1) // b
+
+
+def round_up(x: int, y: int) -> int:
+    """Round up x to the nearest multiple of y"""
+    return cdiv(x, y) * y

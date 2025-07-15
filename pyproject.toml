@@ -31,6 +31,7 @@ dev = [
     "jsonargparse",
     "docstring-parser",
     "pytest",
+    "numpy"
 ]
 
 viz = [

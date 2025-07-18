@@ -172,6 +172,105 @@ def visualize_attention_scores(
     print(f"Visualization saved as {file_path}")
 
 
+def plot_attention_scores(
+    query: Tensor,
+    key: Tensor,
+    score_mod: Optional[_score_mod_signature] = None,
+    mask_mod: Optional[_mask_mod_signature] = None,
+    device: str = "cuda",
+    name: str = "attention_scores",
+    batch_idx: int = 0,
+    head_idx: int = 0,
+    scale: Optional[float] = None,
+    figsize: tuple = (12, 10),
+):
+    """
+    Generate a matplotlib figure of attention scores that can be displayed interactively.
+
+    Args:
+        query (Tensor): Query tensor of shape (batch_size, num_heads, seq_len_q, head_dim).
+        key (Tensor): Key tensor of shape (batch_size, num_heads, seq_len_k, head_dim).
+        score_mod (Optional[Callable]): If this is set this will take precedence over the mask_mod.
+        mask_mod (Optional[Callable]): The mask_mod function used to create block_mask
+        device (str): Device to run computations on (default: "cuda").
+        name (str): Base name for the title (default: 'attention_scores').
+        batch_idx (int): Index of the batch to visualize (default: 0).
+        head_idx (int): Index of the head to visualize (default: 0).
+        scale (float): Scale factor to apply to the attention scores. If None, will be set to 1 / sqrt(head_dim).
+        figsize (tuple): Figure size as (width, height) (default: (12, 10)).
+
+    Returns:
+        matplotlib.figure.Figure: The figure object that can be displayed with plt.show() or in notebooks
+    """
+    import matplotlib.pyplot as plt
+
+    assert (
+        score_mod is not None or mask_mod is not None
+    ), "Must provide either score_mod or mask_mod"
+    query = query[batch_idx, head_idx, :, :]
+    key = key[batch_idx, head_idx, :, :]
+    scores_viz = create_score_mod(
+        query,
+        key,
+        score_mod=score_mod,
+        mask_mod=mask_mod,
+        scale=scale,
+        device=device,
+        batch_idx=batch_idx,
+        head_idx=head_idx,
+    )
+    # If both score_mod and mask_mod are provided, apply both
+    if score_mod is not None and mask_mod is not None:
+        mask_viz = create_score_mod(
+            query,
+            key,
+            score_mod=None,
+            mask_mod=mask_mod,
+            scale=scale,
+            device=device,
+            batch_idx=batch_idx,
+            head_idx=head_idx,
+        )
+        # Apply mask by setting masked positions to -inf
+        scores_viz = torch.where(mask_viz == 0, float("-inf"), scores_viz)
+
+    suffix_title = f"Batch {batch_idx}, Head {head_idx}" if batch_idx != 0 or head_idx != 0 else ""
+
+    fig, ax = plt.subplots(figsize=figsize)
+    color = "viridis" if score_mod is not None else "cividis"
+    if score_mod is not None and mask_mod is not None:
+        color = "plasma"
+    im = ax.imshow(scores_viz.cpu().detach()[0, 0, :, :], aspect="auto", cmap=color)
+    fig.colorbar(im)
+
+    title = _name_to_title(name)
+    ax.set_title(f"{title}\n{suffix_title}", fontsize=20)
+
+    ax.set_xlabel("Key Tokens", fontsize=18)
+    ax.set_ylabel("Query Tokens", fontsize=18)
+
+    # Move y-axis ticks and labels to the top
+    ax.tick_params(axis="x", top=True, labeltop=True, bottom=False, labelbottom=False)
+
+    # Add tick labels if the number of tokens is manageable
+    num_query_tokens, num_kv_tokens = scores_viz.shape[-2:]
+    if num_query_tokens <= 32 and num_kv_tokens <= 32:
+        ax.set_xticks(range(num_kv_tokens))
+        rotation = 45 if num_kv_tokens > 12 else 0
+        ax.set_xticklabels(
+            [f"KV{i}" for i in range(num_kv_tokens)], fontsize=16, rotation=rotation
+        )
+        ax.set_yticks(range(num_query_tokens))
+        ax.set_yticklabels([f"Q{i}" for i in range(num_query_tokens)], fontsize=16)
+        # Align grid with pixel boundaries
+        ax.set_xticks(np.arange(-0.5, num_kv_tokens, 1), minor=True)
+        ax.set_yticks(np.arange(-0.5, num_query_tokens, 1), minor=True)
+        ax.grid(which="minor", color="black", linestyle="-", linewidth=2)
+
+    plt.tight_layout()
+    return fig
+
+
 def cdiv(a: int, b: int) -> int:
     """Ceiling integer division"""
     return (a + b - 1) // b

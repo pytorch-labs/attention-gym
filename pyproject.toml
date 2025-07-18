@@ -41,6 +41,7 @@ viz = [
     "docstring-parser",
     "tabulate",
     "pyyaml",
+    "marimo",
 ]
 
 # ---------- TOOL CONFIGURATIONS ------------
